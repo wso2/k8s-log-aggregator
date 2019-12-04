@@ -5,7 +5,7 @@ Mutating Web-hook Deployment for ElasticStack injection in k8s and helm
 
 ![Architecture](documentation/Sample%20full%20elasticStack%20deployment.png)
 
-####Prerequsites
+**Prerequsites**
 
 1. Ensure that you are running a Kubernetes cluster with version greater 
 than 1.9 by issuing the command
@@ -35,13 +35,13 @@ central repo
         kubectl label namespace ${namespace} namespace=${namespace}
         kubectl label namespace ${namespace} sidecar-injector=enabled
         
-####Building the Docker Image
+**Building the Docker Image**
 
 To build the Docker Image issue the following command
 
         ./build
                 
-####Description of resource files
+**Description of resource files**
 
 1. filebeatyaml.yaml :- Contains the configmap of the filebeat.yml file
 2. injectionConfigmap :- Contains information of the details that would be injected into the containers
@@ -60,6 +60,6 @@ Additionally contains any environment variables that need be added
 **All resource files are generated under the assumption of helm is being used to create
 the deployment**
 
-####Installation
+**Installation**
 1. [Through Helm](documentation/HELM_INSTALLATION.MD)
 2. [Through Kubernetes](documentation/K8S_INSTALLATION.MD)
