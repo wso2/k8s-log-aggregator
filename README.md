@@ -17,21 +17,22 @@ than 1.9 by issuing the command
         admissionregistration.k8s.io/v1beta1
         
 2. Kuberenetes client version (kubectl) version greater than 1.12
+
 3. The project is written using Go. Install Go for you OS by reffering the
-following link
+following link https://golang.org/doc/install
 
 4. The project uses dep as the dependency management tool for Go. Install dep 
 by the following command
 
         go get -u github.com/golang/dep/cmd/dep
         
-5. Docker is used to create the container. It can be installed from 
+5. Docker is used to create the container. It can be installed from https://docs.docker.com/install/linux/docker-ce/ubuntu/ ( Ubuntu users ) or  https://docs.docker.com/docker-for-windows/install/ ( Windows Users )
 
 6. A Dockerhub account is required to push the MutatingWebhook Image to a 
 central repo
 
-7. For the mutatingwebhook to work the namespace must be injected with the following labels
-        
+7. For the mutatingwebhook to work the namespace must be injected with the following labels by using the following commands
+         
         kubectl label namespace ${namespace} namespace=${namespace}
         kubectl label namespace ${namespace} sidecar-injector=enabled
         
