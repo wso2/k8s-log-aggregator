@@ -510,7 +510,7 @@ func (mwhServer *mwhServer) mutate(admissionReview *v1beta1.AdmissionReview) *v1
 		}
 	}
 
-	glog.Infof("AdmissionReview for Kind=%s, Namespace=%s Name=%s (%v) UID=%v patchOperation=%v UserInfo=%v",
+	glog.Infof("AdmissionReview for Kind=%v, Namespace=%s Name=%s (%s) UID=%v patchOperation=%v UserInfo=%v",
 		req.Kind, req.Namespace, req.Name, pod.Name, req.UID, req.Operation, req.UserInfo)
 
 	// Determine whether to perform mutation
@@ -532,7 +532,7 @@ func (mwhServer *mwhServer) mutate(admissionReview *v1beta1.AdmissionReview) *v1
 		}
 	}
 
-	glog.Infof("AdmissionResponse: patch=%v\n", string(patchBytes))
+	glog.Infof("AdmissionResponse: patch=%s\n", string(patchBytes))
 	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 		Patch:   patchBytes,
