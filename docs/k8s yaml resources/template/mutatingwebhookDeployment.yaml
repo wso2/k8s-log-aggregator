@@ -29,10 +29,10 @@ spec:
     spec:
       containers:
         - name: sidecar-injector
-          image: ranikamadurawe/sidecar-injector:v1
+          image: deployment/src/main/resources/testgrid-sidecar/deployment/helmchart/templates/mutatingwebhookDeployment.yaml
           imagePullPolicy: Always
           args:
-            - -sidecarCfgFile=/etc/webhook/config/sidecarconfig.yaml
+            - -sidecarConfigFile=/etc/webhook/config/sidecarconfig.yaml
             - -tlsCertFile=/etc/webhook/certs/cert.pem
             - -tlsKeyFile=/etc/webhook/certs/key.pem
             - -logPathConfigFile=/etc/webhook/details/logpath-details.yaml

@@ -14,7 +14,7 @@
 
 dep ensure -v
 CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o k8s-log-aggregator .
-sudo docker build --no-cache -t ranikamadurawe/sidecar-injector:v1 .
+sudo docker build --no-cache -t asia.gcr.io/testgrid/testgrid-helpers/k8s-logfile-aggregator:v1 .
 rm -rf k8s-log-aggregator
 
-sudo docker push ranikamadurawe/sidecar-injector:v1
+sudo docker push asia.gcr.io/testgrid/testgrid-helpers/k8s-logfile-aggregator:v1
