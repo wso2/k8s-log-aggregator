@@ -16,7 +16,7 @@
  * under the License.
  */
 
-package main
+package pkg
 
 import (
 	"crypto/sha256"
@@ -54,19 +54,19 @@ const (
 	injectedIdentificationConstant      = "injected"
 )
 
-type mwhServer struct {
-	sidecarConfig *injectionConfig
-	logPathConfig *logConfigs
-	server        *http.Server
+type MwhServer struct {
+	SidecarConfig *injectionConfig
+	LogPathConfig *logConfigs
+	Server        *http.Server
 }
 
 // Web-hook server parameters
-type mwhParameters struct {
-	webServerPort     int
-	x509certFile      string
-	x509KeyFile       string
-	sidecarConfigFile string
-	logPathConfigFile string
+type MwhParameters struct {
+	WebServerPort     int
+	X509certFile      string
+	X509KeyFile       string
+	SidecarConfigFile string
+	LogPathConfigFile string
 }
 
 // Stores deployment container name with path to extract logs from
@@ -109,7 +109,7 @@ type patchOperation struct {
  *  @param logPathconfigFile File name of the log path configuration file
  *  @return Log Path configuration
  */
-func loadLogPaths(logPathconfigFile string) (*logConfigs, error) {
+func LoadLogPaths(logPathconfigFile string) (*logConfigs, error) {
 	yamlFile, err := ioutil.ReadFile(logPathconfigFile)
 
 	if err != nil {
@@ -128,7 +128,7 @@ func loadLogPaths(logPathconfigFile string) (*logConfigs, error) {
  *  @param configFile File name of the injection details configuration file
  *  @return Injection details configuration
  */
-func loadConfig(configFile string) (*injectionConfig, error) {
+func LoadConfig(configFile string) (*injectionConfig, error) {
 	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		return nil, err
@@ -487,8 +487,8 @@ func createPatch(pod *corev1.Pod, sidecarConfig *injectionConfig, annotations ma
 }
 
 // Main mutation process
-func (mwhServer *mwhServer) mutate(admissionReview *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	glog.Info(mwhServer.logPathConfig)
+func (mwhServer *MwhServer) mutate(admissionReview *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	glog.Info(mwhServer.LogPathConfig)
 	req := admissionReview.Request
 	var pod corev1.Pod
 
@@ -515,7 +515,7 @@ func (mwhServer *mwhServer) mutate(admissionReview *v1beta1.AdmissionReview) *v1
 
 	// Determine whether to perform mutation
 	var depName = deriveDepName(pod.GenerateName, "-"+pod.Labels["pod-template-hash"]+"-")
-	if !mutationRequired(ignoredNamespaces, &pod.ObjectMeta, depName, mwhServer.logPathConfig) {
+	if !mutationRequired(ignoredNamespaces, &pod.ObjectMeta, depName, mwhServer.LogPathConfig) {
 		glog.Infof("Skipping mutation for %s/%s due to policy check", pod.Namespace, pod.Name)
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
@@ -523,7 +523,7 @@ func (mwhServer *mwhServer) mutate(admissionReview *v1beta1.AdmissionReview) *v1
 	}
 
 	annotations := map[string]string{admissionWebhookAnnotationStatusKey: injectedIdentificationConstant}
-	patchBytes, err := createPatch(&pod, mwhServer.sidecarConfig, annotations, mwhServer.logPathConfig)
+	patchBytes, err := createPatch(&pod, mwhServer.SidecarConfig, annotations, mwhServer.LogPathConfig)
 	if err != nil {
 		return &v1beta1.AdmissionResponse{
 			Result: &metav1.Status{
@@ -544,7 +544,7 @@ func (mwhServer *mwhServer) mutate(admissionReview *v1beta1.AdmissionReview) *v1
 }
 
 // Serve method for web-hook server
-func (mwhServer *mwhServer) serve(responseWriter http.ResponseWriter, k8srequest *http.Request) {
+func (mwhServer *MwhServer) Serve(responseWriter http.ResponseWriter, k8srequest *http.Request) {
 	glog.Info("code review applied")
 	var body []byte
 	var err error

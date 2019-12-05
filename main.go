@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"k8s-log-aggregator/pkg"
 	"net/http"
 	"os"
 	"os/signal"
@@ -32,52 +33,52 @@ import (
 )
 
 func main() {
-	var parameters mwhParameters
+	var parameters pkg.MwhParameters
 
 	// get command line parameters
-	flag.IntVar(&parameters.webServerPort, "webServerPort", 443, "Webhook server webServerPort.")
-	flag.StringVar(&parameters.x509certFile, "tlsCertFile", "/etc/webhook/certs/cert.pem",
+	flag.IntVar(&parameters.WebServerPort, "webServerPort", 443, "Webhook server webServerPort.")
+	flag.StringVar(&parameters.X509certFile, "tlsCertFile", "/etc/webhook/certs/cert.pem",
 		"File containing the x509 Certificate for HTTPS.")
-	flag.StringVar(&parameters.x509KeyFile, "tlsKeyFile", "/etc/webhook/certs/key.pem",
+	flag.StringVar(&parameters.X509KeyFile, "tlsKeyFile", "/etc/webhook/certs/key.pem",
 		"File containing the x509 private key to --tlsCertFile.")
-	flag.StringVar(&parameters.sidecarConfigFile, "sidecarConfigFile", "/etc/webhook/config/sidecar-config.yaml",
+	flag.StringVar(&parameters.SidecarConfigFile, "sidecarConfigFile", "/etc/webhook/config/sidecar-config.yaml",
 		"File containing the mutation configuration.")
-	flag.StringVar(&parameters.logPathConfigFile, "logPathConfigFile",
+	flag.StringVar(&parameters.LogPathConfigFile, "logPathConfigFile",
 		"/etc/webhook/details/logpath-details.yaml", "File containing log path of deployments")
 	flag.Parse()
 
-	sidecarConfig, err := loadConfig(parameters.sidecarConfigFile)
+	sidecarConfig, err := pkg.LoadConfig(parameters.SidecarConfigFile)
 	if err != nil {
 		glog.Errorf("Failed to load Sidecar configuration: %v", err)
 	}
 
-	logPathConfig, err := loadLogPaths(parameters.logPathConfigFile)
+	logPathConfig, err := pkg.LoadLogPaths(parameters.LogPathConfigFile)
 	if err != nil {
 		glog.Errorf("Failed to load Log path configuration: %v", err)
 	}
 
-	pair, err := tls.LoadX509KeyPair(parameters.x509certFile, parameters.x509KeyFile)
+	pair, err := tls.LoadX509KeyPair(parameters.X509certFile, parameters.X509KeyFile)
 	if err != nil {
 		glog.Errorf("Failed to load key pair: %v", err)
 	}
 
-	mwhServer := &mwhServer{
-		sidecarConfig: sidecarConfig,
-		logPathConfig: logPathConfig,
-		server: &http.Server{
-			Addr:      fmt.Sprintf(":%v", parameters.webServerPort),
+	mwhServer := &pkg.MwhServer{
+		SidecarConfig: sidecarConfig,
+		LogPathConfig: logPathConfig,
+		Server: &http.Server{
+			Addr:      fmt.Sprintf(":%v", parameters.WebServerPort),
 			TLSConfig: &tls.Config{Certificates: []tls.Certificate{pair}},
 		},
 	}
 
 	// Define http server and server handler
 	mux := http.NewServeMux()
-	mux.HandleFunc("/mutate", mwhServer.serve)
-	mwhServer.server.Handler = mux
+	mux.HandleFunc("/mutate", mwhServer.Serve)
+	mwhServer.Server.Handler = mux
 
 	// Start webhook server in new routine
 	go func() {
-		if err := mwhServer.server.ListenAndServeTLS("", ""); err != nil {
+		if err := mwhServer.Server.ListenAndServeTLS("", ""); err != nil {
 			glog.Errorf("Failed to start listener: %v", err)
 		}
 	}()
@@ -88,5 +89,5 @@ func main() {
 	<-signalChan
 
 	glog.Infof("Recieved OS shutdown signal, shutting down webhook server gracefully...")
-	_ = mwhServer.server.Shutdown(context.Background())
+	_ = mwhServer.Server.Shutdown(context.Background())
 }
