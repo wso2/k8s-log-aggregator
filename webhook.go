@@ -1,3 +1,21 @@
+/*
+ * Copyright (c) 2019, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *
+ * WSO2 Inc. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 package main
 
 import (
@@ -12,12 +30,10 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"k8s.io/api/admission/v1beta1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/kubernetes/pkg/apis/core/v1"
 )
 
 var (
@@ -27,58 +43,59 @@ var (
 )
 
 // Ignored namespaces which include the kube-system and kube-public namespaces
-var ignoredNamespaces = []string {
+var ignoredNamespaces = []string{
 	metav1.NamespaceSystem,
 	metav1.NamespacePublic,
 }
 
 const (
 	admissionWebhookAnnotationStatusKey = "injection/status"
-	standardTestGridLoc = "opt/testgrid/"
+	standardTestGridLoc                 = "opt/testgrid/"
+	injectedIdentificationConstant      = "injected"
 )
 
 type mwhServer struct {
-	sidecarConfig    *injectionConfig
-	logPathConfig    *logConfigs
-	server           *http.Server
+	sidecarConfig *injectionConfig
+	logPathConfig *logConfigs
+	server        *http.Server
 }
 
-// Webhook Server parameters
+// Web-hook server parameters
 type mwhParameters struct {
-	port int                 // webhook server port
-	certFile string          // path to the x509 certificate for https
-	keyFile string           // path to the x509 private key matching `CertFile`
-	sidecarCfgFile string    // path to sidecar injector configuration file
+	webServerPort     int
+	x509certFile      string
+	x509KeyFile       string
+	sidecarConfigFile string
 	logPathConfigFile string
 }
 
 // Stores deployment container name with path to extract logs from
-type logPaths struct {
+type logPath struct {
 	DeploymentName string `yaml:"deploymentName"`
-	ContainerName string  `yaml:"containerName"`
-	Path string  `yaml:"path"`
+	ContainerName  string `yaml:"containerName"`
+	Path           string `yaml:"path"`
 }
 
 // Stores an env variable to be injected
 type envVar struct {
-	Name string `yaml:"name"`
+	Name  string `yaml:"name"`
 	Value string `yaml:"value"`
 }
 
 // Stores the set of paths which logs need to be injected from or the env variable that need be injected
 type logConfigs struct {
-	Logpaths []logPaths `yaml:"logpaths"`
-	EnvVars []envVar    `"yaml:envvars"`
-	OnlyVars string     `"yaml:onlyvars"`
+	Logpaths []logPath `yaml:"logPaths"`
+	EnvVars  []envVar  `yaml:"envVars"`
+	OnlyVars string    `yaml:"onlyVars"`
 }
 
 // Stores details of the information to be injected
 type injectionConfig struct {
-	Containers  []corev1.Container   `yaml:"containers"`
-	Volumes     []corev1.Volume      `yaml:"volumes"`
-	VolumeMounts []corev1.VolumeMount `yaml:"volumeMount"`
-	Env []corev1.EnvVar               `yaml:"env"`
-	InitContainers []corev1.Container `yaml:"initContainers"`
+	Containers     []corev1.Container   `yaml:"containers"`
+	Volumes        []corev1.Volume      `yaml:"volumes"`
+	VolumeMounts   []corev1.VolumeMount `yaml:"volumeMount"`
+	Env            []corev1.EnvVar      `yaml:"env"`
+	InitContainers []corev1.Container   `yaml:"initContainers"`
 }
 
 type patchOperation struct {
@@ -87,30 +104,22 @@ type patchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-func init() {
-	_ = corev1.AddToScheme(runtimeScheme)
-	_ = admissionregistrationv1beta1.AddToScheme(runtimeScheme)
-	_ = v1.AddToScheme(runtimeScheme)
-}
-
-
 /**
- *  load path and deployment container name sets from log path config file
+ *  Load path and deployment container name sets from log path config file
  *  @param logPathconfigFile File name of the log path configuration file
  *  @return Log Path configuration
  */
-func loadLogPaths(logPathconfigFile string) (*logConfigs, error){
+func loadLogPaths(logPathconfigFile string) (*logConfigs, error) {
 	yamlFile, err := ioutil.ReadFile(logPathconfigFile)
-	glog.Infof(strconv.Itoa(len(yamlFile)))
+
 	if err != nil {
 		return nil, err
 	}
 
 	var logConfs logConfigs
-	if err := yaml.Unmarshal(yamlFile, &logConfs); err != nil{
-		return nil,err
+	if err := yaml.Unmarshal(yamlFile, &logConfs); err != nil {
+		return nil, err
 	}
-
 	return &logConfs, nil
 }
 
@@ -135,15 +144,15 @@ func loadConfig(configFile string) (*injectionConfig, error) {
 }
 
 /**
- *  Checks wether the dep name has any sort of container that requires log files extracted from
+ *  Checks whether the dep name has any sort of container that requires log files extracted from
  *  @param depname name of the deployment
  *  @param logConfs Log Configuration required by the TestGrid job
  *  @return Boolean wether deployment has containers that needed to be edited
  */
-func checkLogpathConfs(depname string, logConfs *logConfigs) bool{
-	for _, logLoc := range  logConfs.Logpaths {
-		if logLoc.DeploymentName == depname{
-			glog.Infof("required in deployment and container pair ", logLoc.DeploymentName)
+func checkLogPathConfs(depName string, logConfs *logConfigs) bool {
+	for _, logLoc := range logConfs.Logpaths {
+		if logLoc.DeploymentName == depName {
+			glog.Infof("Mutation required in deployment and container pair %s", logLoc.DeploymentName)
 			return true
 		}
 	}
@@ -151,11 +160,15 @@ func checkLogpathConfs(depname string, logConfs *logConfigs) bool{
 }
 
 /**
- *  Checks wether the TestGrid job only requires that Env variables be injected
+ *  Checks whether the TestGrid job only requires that Env variables be injected
  *  @param logConfs Log Configuration required by the TestGrid job
  *  @return Boolean wether only env variables be added
  */
-func checkVarRequirement(logConf *logConfigs) bool{
+func checkEnvVarRequirement(logConf *logConfigs) bool {
+	if logConf == nil {
+		glog.Error("Log configuration not provided check config map for errors")
+		return false
+	}
 	if logConf.OnlyVars == "true" {
 		return true
 	}
@@ -166,15 +179,17 @@ func checkVarRequirement(logConf *logConfigs) bool{
  *  Checks the pod needs to be mutated
  *  @param ignoredList List of ignored namespaces
  *  @param metadata pods meta data
- *  @param depname Deployment name of the pod
- *  @param logConfs Log Configuration required by the TestGrid job
- *  @return Boolean Wether the pod needs to be mutated
+ *  @param depName Deployment name of the pod
+ *  @param logConfigurations Log Configuration required by the TestGrid job
+ *  @return Boolean Whether the pod needs to be mutated
  */
-func mutationRequired(ignoredList []string, metadata *metav1.ObjectMeta, depname string, logConfs *logConfigs) bool {
-	// skip special kubernete system namespaces
+func mutationRequired(ignoredList []string, metadata *metav1.ObjectMeta, depName string,
+	logConfigurations *logConfigs) bool {
+
+	// Skip special kubernetes system namespaces
 	for _, namespace := range ignoredList {
 		if metadata.Namespace == namespace {
-			glog.Infof("Skip mutation for %v for it' in special namespace:%v", metadata.Name, metadata.Namespace)
+			glog.Infof("Skip mutation for %s for it' in special namespace:%s", metadata.Name, metadata.Namespace)
 			return false
 		}
 	}
@@ -186,23 +201,23 @@ func mutationRequired(ignoredList []string, metadata *metav1.ObjectMeta, depname
 
 	status := annotations[admissionWebhookAnnotationStatusKey]
 
-	// determine whether to perform mutation based on annotation for the target resource
+	// Determine whether to perform mutation based on annotation for the target resource
 	var required bool
-	if strings.ToLower(status) == "injected" {
+	if strings.ToLower(status) == injectedIdentificationConstant {
 		required = false
 	} else {
-		required = checkLogpathConfs(depname, logConfs) || checkVarRequirement(logConfs)
+		required = checkLogPathConfs(depName, logConfigurations) || checkEnvVarRequirement(logConfigurations)
 	}
 
-	glog.Infof("Mutation policy for %v/%v: status: %q required:%v", metadata.Namespace, metadata.Name, status,
+	glog.Infof("Mutation policy for %s/%s: status: %q required:%b", metadata.Namespace, metadata.Name, status,
 		required)
 	return required
 }
 
 /**
  *  Adds a container to the pod spec
- *  @param target location to which containers need to be added
- *  @param containerList  containers to be added
+ *  @param target Location to which containers need to be added
+ *  @param containerList  Containers to be added
  *  @param basePath Location in target where containers need to be added
  *
  *  @return Go patch operation to add the container
@@ -219,7 +234,7 @@ func addContainer(target, containerList []corev1.Container, basePath string) (pa
 		} else {
 			path = path + "/-"
 		}
-		patch = append(patch, patchOperation {
+		patch = append(patch, patchOperation{
 			Op:    "add",
 			Path:  path,
 			Value: value,
@@ -228,7 +243,15 @@ func addContainer(target, containerList []corev1.Container, basePath string) (pa
 	return patch
 }
 
-func addVolumeMount(target, volumeMountList []corev1.VolumeMount, basePath string) (patch []patchOperation){
+/**
+ *  Adds a volume mount to the pod spec
+ *  @param target Location to which volume mount need to be added
+ *  @param volumeMountList Volume Mounts that to be added
+ *  @param basePath Location in target where volume Mounts need to be added
+ *
+ *  @return Go patch operation to add the volume mounts
+ */
+func addVolumeMount(target, volumeMountList []corev1.VolumeMount, basePath string) (patch []patchOperation) {
 	first := len(target) == 0
 	var value interface{}
 	for _, addVolumeMount := range volumeMountList {
@@ -240,7 +263,7 @@ func addVolumeMount(target, volumeMountList []corev1.VolumeMount, basePath strin
 		} else {
 			path = path + "/-"
 		}
-		patch = append(patch, patchOperation {
+		patch = append(patch, patchOperation{
 			Op:    "add",
 			Path:  path,
 			Value: value,
@@ -249,19 +272,27 @@ func addVolumeMount(target, volumeMountList []corev1.VolumeMount, basePath strin
 	return patch
 }
 
-func addEnvVar(target, envVarList []corev1.EnvVar, basePath string) (patch []patchOperation){
+/**
+ *  Adds a environment variables to the pod spec
+ *  @param target Location to which environment variables need to be added
+ *  @param envVarList environment variables that to be added
+ *  @param basePath Location in target where environment variables need to be added
+ *
+ *  @return Go patch operation to add the environment variables
+ */
+func addEnvVar(target, envVarList []corev1.EnvVar, basePath string) (patch []patchOperation) {
 	first := len(target) == 0
 	var value interface{}
-	for _, addenvVar := range envVarList {
-		value = addenvVar
+	for _, addEnvVar := range envVarList {
+		value = addEnvVar
 		path := basePath
 		if first {
 			first = false
-			value = []corev1.EnvVar{addenvVar}
+			value = []corev1.EnvVar{addEnvVar}
 		} else {
 			path = path + "/-"
 		}
-		patch = append(patch, patchOperation {
+		patch = append(patch, patchOperation{
 			Op:    "add",
 			Path:  path,
 			Value: value,
@@ -270,6 +301,14 @@ func addEnvVar(target, envVarList []corev1.EnvVar, basePath string) (patch []pat
 	return patch
 }
 
+/**
+ *  Adds a volumes to the pod spec
+ *  @param target Location to which volumes need to be added
+ *  @param volumeList volumes that to be added
+ *  @param basePath Location in target where volumes need to be added
+ *
+ *  @return Go patch operation to add the volumes
+ */
 func addVolume(target, volumeList []corev1.Volume, basePath string) (patch []patchOperation) {
 	first := len(target) == 0
 	var value interface{}
@@ -282,7 +321,7 @@ func addVolume(target, volumeList []corev1.Volume, basePath string) (patch []pat
 		} else {
 			path = path + "/-"
 		}
-		patch = append(patch, patchOperation {
+		patch = append(patch, patchOperation{
 			Op:    "add",
 			Path:  path,
 			Value: value,
@@ -290,7 +329,6 @@ func addVolume(target, volumeList []corev1.Volume, basePath string) (patch []pat
 	}
 	return patch
 }
-
 
 func addInitContainer(target, initContainerList []corev1.Container, basePath string) (patch []patchOperation) {
 	first := len(target) == 0
@@ -304,7 +342,7 @@ func addInitContainer(target, initContainerList []corev1.Container, basePath str
 		} else {
 			path = path + "/-"
 		}
-		patch = append(patch, patchOperation {
+		patch = append(patch, patchOperation{
 			Op:    "add",
 			Path:  path,
 			Value: value,
@@ -320,7 +358,7 @@ func updateAnnotation(target map[string]string, annotations map[string]string) (
 	for key, value := range annotations {
 		if target == nil || target[key] == "" {
 			target = map[string]string{}
-			patch = append(patch, patchOperation {
+			patch = append(patch, patchOperation{
 				Op:   "add",
 				Path: "/metadata/annotations",
 				Value: map[string]string{
@@ -328,7 +366,7 @@ func updateAnnotation(target map[string]string, annotations map[string]string) (
 				},
 			})
 		} else {
-			patch = append(patch, patchOperation {
+			patch = append(patch, patchOperation{
 				Op:    "replace",
 				Path:  "/metadata/annotations/" + key,
 				Value: value,
@@ -340,53 +378,56 @@ func updateAnnotation(target map[string]string, annotations map[string]string) (
 
 /**
  *  Finds Log Path for a deployment container name pair
- *  @param logConfs Log Configuration required by the TestGrid job
- *  @return String path to extract logs from the deployment name container name pair
+ *  @param logConfigurations Log Configuration required by the TestGrid job
+ *  @return string Path to extract logs from the deployment name container name pair
  */
-func findLogPath(depName string, containerName string, logConfs *logConfigs ) (path string) {
-	for _, logLoc := range  logConfs.Logpaths {
+func findLogPath(depName string, containerName string, logConfigurations *logConfigs) (path string) {
+	for _, logLoc := range logConfigurations.Logpaths {
 		if logLoc.DeploymentName == depName && logLoc.ContainerName == containerName {
 			return logLoc.Path
 		}
 	}
-	glog.Info("No path found for ",depName, containerName,"using default")
+	glog.Info("No path found for ", depName, containerName, "using default")
 	return "/opt/testgrid/logs"
 }
 
-// create mutation patch for resources
-func createPatch(pod *corev1.Pod,
-	sidecarConfig *injectionConfig, annotations map[string]string, logConfs *logConfigs ) ([]byte, error) {
+// Derive the deployment name using randomly generated name and hash
+func deriveDepName(podRandomName string, podHash string) string {
+	var depName = strings.Replace(podRandomName, podHash, "", 1)
+	return depName
+}
+
+// Create mutation patch for resources
+func createPatch(pod *corev1.Pod, sidecarConfig *injectionConfig, annotations map[string]string,
+	logConfs *logConfigs) ([]byte, error) {
 
 	var patch []patchOperation
 	var containerList = pod.Spec.Containers
 
-	if len(containerList) > 0 {
-		for index, container := range containerList {
-			var envVars = []corev1.EnvVar{}
-			Envpath := "/spec/containers/"+strconv.Itoa(index)+"/env"
+	for index, container := range containerList {
+		var envVars []corev1.EnvVar
+		envPath := "/spec/containers/" + strconv.Itoa(index) + "/env"
 
-			for _, envVar := range logConfs.EnvVars {
-				var esVar = corev1.EnvVar{Name: envVar.Name, Value: envVar.Value  }
-				envVars = append(envVars, esVar)
-			}
-			patch = append(patch, addEnvVar(container.Env, envVars, Envpath)...)
+		for _, envVar := range logConfs.EnvVars {
+			var esVar = corev1.EnvVar{Name: envVar.Name, Value: envVar.Value}
+			envVars = append(envVars, esVar)
 		}
+		patch = append(patch, addEnvVar(container.Env, envVars, envPath)...)
 	}
 
 	if logConfs.OnlyVars != "true" {
-		var podRandomName = pod.GenerateName
-		var podHash = "-" + pod.Labels["pod-template-hash"] + "-"
-		var depName = strings.Replace(podRandomName, podHash, "",1)
+
+		var depName = deriveDepName(pod.GenerateName, "-"+pod.Labels["pod-template-hash"]+"-")
 
 		// Adding the environment variables to each container
 		for index, container := range containerList {
-			Envpath := "/spec/containers/"+strconv.Itoa(index)+"/env"
-			patch = append(patch, addEnvVar(container.Env, sidecarConfig.Env, Envpath)...)
+			envPath := "/spec/containers/" + strconv.Itoa(index) + "/env"
+			patch = append(patch, addEnvVar(container.Env, sidecarConfig.Env, envPath)...)
 		}
 
 		// Adding the init containers
-		patch = append(patch, addInitContainer(pod.Spec.InitContainers,
-			sidecarConfig.InitContainers, "/spec/initContainers")...)
+		patch = append(patch, addInitContainer(pod.Spec.InitContainers, sidecarConfig.InitContainers,
+			"/spec/initContainers")...)
 
 		// Adding the fixed volumes to each container
 		patch = append(patch, addVolume(pod.Spec.Volumes, sidecarConfig.Volumes, "/spec/volumes")...)
@@ -394,40 +435,39 @@ func createPatch(pod *corev1.Pod,
 		// Adding annotations
 		patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
-
 		// Adding volume Mounts to containers
-		var sidecarInjectVolMounts = []corev1.VolumeMount{}
-		var volumes = []corev1.Volume{}
+		var sidecarInjectVolMounts []corev1.VolumeMount
+		var volumes []corev1.Volume
 
 		for index, container := range containerList {
 
-			var containerInjectVolMounts = []corev1.VolumeMount{}
-			var logPath = findLogPath(depName,container.Name,logConfs)
-			var injectedVolMount = corev1.VolumeMount{Name:"testgrid-"+strconv.Itoa(index) ,
+			var containerInjectVolMounts []corev1.VolumeMount
+			var logPath = findLogPath(depName, container.Name, logConfs)
+			var injectedVolMount = corev1.VolumeMount{Name: "testgrid-" + strconv.Itoa(index),
 				MountPath: logPath}
-			var sidecarInjectedVolMount = corev1.VolumeMount{Name:"testgrid-"+strconv.Itoa(index) ,
-				MountPath:standardTestGridLoc+container.Name}
+			var sidecarInjectedVolMount = corev1.VolumeMount{Name: "testgrid-" + strconv.Itoa(index),
+				MountPath: standardTestGridLoc + container.Name}
 
 			var logVolSource = corev1.VolumeSource{EmptyDir: nil}
-			var logVolume = corev1.Volume{Name: "testgrid-"+strconv.Itoa(index), VolumeSource: logVolSource}
+			var logVolume = corev1.Volume{Name: "testgrid-" + strconv.Itoa(index), VolumeSource: logVolSource}
 
 			sidecarInjectVolMounts = append(sidecarInjectVolMounts, sidecarInjectedVolMount)
 			containerInjectVolMounts = append(containerInjectVolMounts, injectedVolMount)
 
 			volumes = append(volumes, logVolume)
 
-			volMountpath := "/spec/containers/"+strconv.Itoa(index)+"/volumeMounts"
+			volMountpath := "/spec/containers/" + strconv.Itoa(index) + "/volumeMounts"
 			patch = append(patch, addVolumeMount(container.VolumeMounts, containerInjectVolMounts, volMountpath)...)
 
 		}
 
-		// Get Filebeat Sidecar From configmap
-		var filebeatSidecar = sidecarConfig.Containers[0];
+		// Get file-beat Sidecar from config map
+		var filebeatSidecar = sidecarConfig.Containers[0]
 
-		sidecarInjectVolMounts = append(sidecarInjectVolMounts, filebeatSidecar.VolumeMounts ...)
+		sidecarInjectVolMounts = append(sidecarInjectVolMounts, filebeatSidecar.VolumeMounts...)
 
 		// Add the sidecar
-		var sideCarList = []corev1.Container{}
+		var sideCarList []corev1.Container
 		var sideCar = corev1.Container{
 			Name:         filebeatSidecar.Name,
 			Image:        filebeatSidecar.Image,
@@ -443,51 +483,57 @@ func createPatch(pod *corev1.Pod,
 
 	}
 
-
 	return json.Marshal(patch)
 }
 
-// main mutation process
-func (mwhServer *mwhServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+// Main mutation process
+func (mwhServer *mwhServer) mutate(admissionReview *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	glog.Info(mwhServer.logPathConfig)
-	req := ar.Request
+	req := admissionReview.Request
 	var pod corev1.Pod
+
+	if req == nil {
+		glog.Error("Received null request Object")
+		return &v1beta1.AdmissionResponse{
+			Result: &metav1.Status{
+				Message: "Null request Object",
+			},
+		}
+	}
+
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
 		glog.Errorf("Could not unmarshal raw object: %v", err)
-		return &v1beta1.AdmissionResponse {
-			Result: &metav1.Status {
+		return &v1beta1.AdmissionResponse{
+			Result: &metav1.Status{
 				Message: err.Error(),
 			},
 		}
 	}
 
-	glog.Infof("AdmissionReview for Kind=%v, Namespace=%v Name=%v (%v) UID=%v patchOperation=%v UserInfo=%v",
+	glog.Infof("AdmissionReview for Kind=%s, Namespace=%s Name=%s (%v) UID=%v patchOperation=%v UserInfo=%v",
 		req.Kind, req.Namespace, req.Name, pod.Name, req.UID, req.Operation, req.UserInfo)
 
-	// determine whether to perform mutation
-	var podRandomName = pod.GenerateName
-	var podHash = "-" + pod.Labels["pod-template-hash"] + "-"
-	var depName = strings.Replace(podRandomName, podHash, "",1)
+	// Determine whether to perform mutation
+	var depName = deriveDepName(pod.GenerateName, "-"+pod.Labels["pod-template-hash"]+"-")
 	if !mutationRequired(ignoredNamespaces, &pod.ObjectMeta, depName, mwhServer.logPathConfig) {
 		glog.Infof("Skipping mutation for %s/%s due to policy check", pod.Namespace, pod.Name)
-		return &v1beta1.AdmissionResponse {
+		return &v1beta1.AdmissionResponse{
 			Allowed: true,
 		}
 	}
 
-    glog.Infof("no runtime")
-	annotations := map[string]string{admissionWebhookAnnotationStatusKey: "injected"}
+	annotations := map[string]string{admissionWebhookAnnotationStatusKey: injectedIdentificationConstant}
 	patchBytes, err := createPatch(&pod, mwhServer.sidecarConfig, annotations, mwhServer.logPathConfig)
 	if err != nil {
-		return &v1beta1.AdmissionResponse {
-			Result: &metav1.Status {
+		return &v1beta1.AdmissionResponse{
+			Result: &metav1.Status{
 				Message: err.Error(),
 			},
 		}
 	}
 
 	glog.Infof("AdmissionResponse: patch=%v\n", string(patchBytes))
-	return &v1beta1.AdmissionResponse {
+	return &v1beta1.AdmissionResponse{
 		Allowed: true,
 		Patch:   patchBytes,
 		PatchType: func() *v1beta1.PatchType {
@@ -497,57 +543,62 @@ func (mwhServer *mwhServer) mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	}
 }
 
-// Serve method for webhook server
-func (mwhServer *mwhServer) serve(w http.ResponseWriter, r *http.Request) {
+// Serve method for web-hook server
+func (mwhServer *mwhServer) serve(responseWriter http.ResponseWriter, k8srequest *http.Request) {
+	glog.Info("code review applied")
 	var body []byte
-	if r.Body != nil {
-		if data, err := ioutil.ReadAll(r.Body); err == nil {
-			body = data
+	var err error
+	if k8srequest.Body != nil {
+		if body, err = ioutil.ReadAll(k8srequest.Body); err != nil {
+			glog.Errorf("Error reading request %v", err)
+			http.Error(responseWriter, "Error reading request", http.StatusBadRequest)
+			return
 		}
 	}
 	if len(body) == 0 {
 		glog.Error("empty body")
-		http.Error(w, "empty body", http.StatusBadRequest)
+		http.Error(responseWriter, "Empty body", http.StatusBadRequest)
 		return
 	}
 
-	// verify the content type is accurate
-	contentType := r.Header.Get("Content-Type")
+	// Verify that the content type is accurate
+	contentType := k8srequest.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		glog.Errorf("Content-Type=%s, expect application/json", contentType)
-		http.Error(w, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
+		http.Error(responseWriter, "Invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
 		return
 	}
 
 	var admissionResponse *v1beta1.AdmissionResponse
-	ar := v1beta1.AdmissionReview{}
-	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
+	originalAdmissionReview := v1beta1.AdmissionReview{}
+	// Ability to decode to Admission review object is only required
+	if _, _, err := deserializer.Decode(body, nil, &originalAdmissionReview); err != nil {
 		glog.Errorf("Can't decode body: %v", err)
-		admissionResponse = &v1beta1.AdmissionResponse {
-			Result: &metav1.Status {
+		admissionResponse = &v1beta1.AdmissionResponse{
+			Result: &metav1.Status{
 				Message: err.Error(),
 			},
 		}
 	} else {
-		admissionResponse = mwhServer.mutate(&ar)
+		admissionResponse = mwhServer.mutate(&originalAdmissionReview)
 	}
 
-	admissionReview := v1beta1.AdmissionReview{}
+	mutatedAdmissionReview := v1beta1.AdmissionReview{}
 	if admissionResponse != nil {
-		admissionReview.Response = admissionResponse
-		if ar.Request != nil {
-			admissionReview.Response.UID = ar.Request.UID
+		mutatedAdmissionReview.Response = admissionResponse
+		if originalAdmissionReview.Request != nil {
+			mutatedAdmissionReview.Response.UID = originalAdmissionReview.Request.UID
 		}
 	}
 
-	resp, err := json.Marshal(admissionReview)
+	resp, err := json.Marshal(mutatedAdmissionReview)
 	if err != nil {
 		glog.Errorf("Can't encode response: %v", err)
-		http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
+		http.Error(responseWriter, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
 	}
 	glog.Infof("Ready to write reponse ...")
-	if _, err := w.Write(resp); err != nil {
+	if _, err := responseWriter.Write(resp); err != nil {
 		glog.Errorf("Can't write response: %v", err)
-		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
+		http.Error(responseWriter, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
 }

@@ -18,17 +18,6 @@
   revision = "de5bf2ad457846296e2031421a34e2568e304e35"
 
 [[projects]]
-  branch = "master"
-  digest = "1:4189ee6a3844f555124d9d2656fe7af02fca961c2a9bad9074789df13a0c62e0"
-  name = "github.com/docker/distribution"
-  packages = [
-    "digestset",
-    "reference",
-  ]
-  pruneopts = "UT"
-  revision = "34c706e759240975178df82495f147559cc0edc1"
-
-[[projects]]
   digest = "1:d91a89491d49259e41fb09c3a3d42f740d84edee064d8ecede0d64b388bfad71"
   name = "github.com/emicklei/go-restful"
   packages = [
@@ -143,14 +132,6 @@
   version = "1.0.0"
 
 [[projects]]
-  digest = "1:ee4d4af67d93cc7644157882329023ce9a7bcfce956a079069a9405521c7cc8d"
-  name = "github.com/opencontainers/go-digest"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "279bed98673dd5bef374d3b6e4b09e2af76183bf"
-  version = "v1.0.0-rc1"
-
-[[projects]]
   digest = "1:1b21a2b4058a779f290c7341cd93267492e0ecea6c8b54f64a4a5fd7ff131034"
   name = "github.com/spf13/pflag"
   packages = ["."]
@@ -213,11 +194,10 @@
 
 [[projects]]
   branch = "release-1.9"
-  digest = "1:31099e1498867649822826915ccd8570b8bf9cc5f79cc4896857c30e2a29ab0e"
+  digest = "1:2f97e58bdbf1f98f44c0166449e37b6f6a45d546daceb25350c3825936be31d9"
   name = "k8s.io/api"
   packages = [
     "admission/v1beta1",
-    "admissionregistration/v1beta1",
     "authentication/v1",
     "core/v1",
   ]
@@ -225,22 +205,12 @@
   revision = "acf347b865f29325eb61f4cd2df11e86e073a5ee"
 
 [[projects]]
-  branch = "master"
-  digest = "1:148201ffd91a8adab27a1fdb9c8988238e4c3f587558f08adb53d8e2aab09629"
-  name = "k8s.io/apiextensions-apiserver"
-  packages = ["pkg/features"]
-  pruneopts = "UT"
-  revision = "9f7d28e4a66fed426627a89e57d82602a3d33a12"
-
-[[projects]]
   branch = "release-1.9"
-  digest = "1:16e49e6f9576242746c2197334169290a2ae51426831ae125905a1f3ab0f80f6"
+  digest = "1:1ad489ffecf6af1a7e1a3ec292dc9d7ab61194f4343a98f22e7eb7dd43163c4d"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/resource",
-    "pkg/apis/meta/internalversion",
     "pkg/apis/meta/v1",
-    "pkg/apis/meta/v1alpha1",
     "pkg/conversion",
     "pkg/conversion/queryparams",
     "pkg/fields",
@@ -273,39 +243,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bb8f5d13cd7d0901b6fc73ce337e84ea6d71e1f93b16b93c046e5651f1830445"
-  name = "k8s.io/apiserver"
-  packages = [
-    "pkg/features",
-    "pkg/util/feature",
-  ]
-  pruneopts = "UT"
-  revision = "8e2fdf029740242e7ff156baa1107b07e403e241"
-
-[[projects]]
-  branch = "master"
   digest = "1:f5487c07872bdb7c40ffe629430b2fa815f9eca0d2c02bb9e866962eb38a0e70"
   name = "k8s.io/kube-openapi"
   packages = ["pkg/common"]
   pruneopts = "UT"
   revision = "50ae88d24ede7b8bad68e23c805b5d3da5c8abaf"
-
-[[projects]]
-  digest = "1:39b2f911a3e6603a65cd76924b17ceb914d89094e991c7f0d6692dcbc4a2187a"
-  name = "k8s.io/kubernetes"
-  packages = [
-    "pkg/apis/autoscaling",
-    "pkg/apis/core",
-    "pkg/apis/core/v1",
-    "pkg/apis/extensions",
-    "pkg/apis/networking",
-    "pkg/features",
-    "pkg/util/parsers",
-    "pkg/util/pointer",
-  ]
-  pruneopts = "UT"
-  revision = "bee2d1505c4fe820744d26d41ecd3fdd4a3d6546"
-  version = "v1.9.4"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -314,12 +256,10 @@
     "github.com/ghodss/yaml",
     "github.com/golang/glog",
     "k8s.io/api/admission/v1beta1",
-    "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/serializer",
-    "k8s.io/kubernetes/pkg/apis/core/v1",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

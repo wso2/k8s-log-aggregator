@@ -3,7 +3,7 @@ Mutating Web-hook Deployment for ElasticStack injection in k8s and helm
 
 ####Architecture of Top Down ElasticStack Deployment
 
-![Architecture](documentation/Sample%20full%20elasticStack%20deployment.png)
+![Architecture](docs/Sample%20full%20elasticStack%20deployment.png)
 
 ####Prerequsites
 
@@ -61,5 +61,5 @@ Additionally contains any environment variables that need be added
 the deployment**
 
 ####Installation
-1. [Through Helm](documentation/HELM_INSTALLATION.MD)
-2. [Through Kubernetes](documentation/K8S_INSTALLATION.MD)
+1. [Through Helm](docs/HELM_INSTALLATION.MD)
+2. [Through Kubernetes](docs/K8S_INSTALLATION.MD)
