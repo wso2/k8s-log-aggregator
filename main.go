@@ -47,12 +47,13 @@ func main() {
 		"/etc/webhook/details/logpath-details.yaml", "File containing log path of deployments")
 	flag.Parse()
 
-	sidecarConfig, err := pkg.LoadConfig(parameters.SidecarConfigFile)
+	var sidecarConfig pkg.InjectionConfig
+	err := pkg.LoadFiles(parameters.SidecarConfigFile, &sidecarConfig)
 	if err != nil {
 		glog.Errorf("Failed to load Sidecar configuration: %v", err)
 	}
-
-	logPathConfig, err := pkg.LoadLogPaths(parameters.LogPathConfigFile)
+	var logPathConfig pkg.LogConfigs
+	err = pkg.LoadFiles(parameters.LogPathConfigFile, &logPathConfig)
 	if err != nil {
 		glog.Errorf("Failed to load Log path configuration: %v", err)
 	}
@@ -63,8 +64,8 @@ func main() {
 	}
 
 	mwhServer := &pkg.MwhServer{
-		SidecarConfig: sidecarConfig,
-		LogPathConfig: logPathConfig,
+		SidecarConfig: &sidecarConfig,
+		LogPathConfig: &logPathConfig,
 		Server: &http.Server{
 			Addr:      fmt.Sprintf(":%v", parameters.WebServerPort),
 			TLSConfig: &tls.Config{Certificates: []tls.Certificate{pair}},

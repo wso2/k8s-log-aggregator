@@ -19,7 +19,6 @@
 package pkg
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -55,8 +54,8 @@ const (
 )
 
 type MwhServer struct {
-	SidecarConfig *injectionConfig
-	LogPathConfig *logConfigs
+	SidecarConfig *InjectionConfig
+	LogPathConfig *LogConfigs
 	Server        *http.Server
 }
 
@@ -83,14 +82,14 @@ type envVar struct {
 }
 
 // Stores the set of paths which logs need to be injected from or the env variable that need be injected
-type logConfigs struct {
+type LogConfigs struct {
 	Logpaths []logPath `yaml:"logPaths"`
 	EnvVars  []envVar  `yaml:"envVars"`
 	OnlyVars string    `yaml:"onlyVars"`
 }
 
 // Stores details of the information to be injected
-type injectionConfig struct {
+type InjectionConfig struct {
 	Containers     []corev1.Container   `yaml:"containers"`
 	Volumes        []corev1.Volume      `yaml:"volumes"`
 	VolumeMounts   []corev1.VolumeMount `yaml:"volumeMount"`
@@ -105,42 +104,22 @@ type patchOperation struct {
 }
 
 /**
- *  Load path and deployment container name sets from log path config file
- *  @param logPathconfigFile File name of the log path configuration file
- *  @return Log Path configuration
+ *  Loads configuration files and stores them within a struct
+ *  @param filepath Path to file
+ *  @param configObject Object to which config is added
+ *  @return error
  */
-func LoadLogPaths(logPathconfigFile string) (*logConfigs, error) {
-	yamlFile, err := ioutil.ReadFile(logPathconfigFile)
+func LoadFiles(filePath string, configObject interface{}) error {
+	yamlFile, err := ioutil.ReadFile(filePath)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var logConfs logConfigs
-	if err := yaml.Unmarshal(yamlFile, &logConfs); err != nil {
-		return nil, err
+	if err := yaml.Unmarshal(yamlFile, configObject); err != nil {
+		return err
 	}
-	return &logConfs, nil
-}
-
-/**
- *  Load injection details from configuration file
- *  @param configFile File name of the injection details configuration file
- *  @return Injection details configuration
- */
-func LoadConfig(configFile string) (*injectionConfig, error) {
-	data, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return nil, err
-	}
-	glog.Infof("New configuration: sha256sum %x", sha256.Sum256(data))
-
-	var cfg injectionConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
-	}
-
-	return &cfg, nil
+	return nil
 }
 
 /**
@@ -149,7 +128,7 @@ func LoadConfig(configFile string) (*injectionConfig, error) {
  *  @param logConfs Log Configuration required by the TestGrid job
  *  @return Boolean wether deployment has containers that needed to be edited
  */
-func checkLogPathConfs(depName string, logConfs *logConfigs) bool {
+func checkLogPathConfs(depName string, logConfs *LogConfigs) bool {
 	for _, logLoc := range logConfs.Logpaths {
 		if logLoc.DeploymentName == depName {
 			glog.Infof("Mutation required in deployment and container pair %s", logLoc.DeploymentName)
@@ -164,7 +143,7 @@ func checkLogPathConfs(depName string, logConfs *logConfigs) bool {
  *  @param logConfs Log Configuration required by the TestGrid job
  *  @return Boolean wether only env variables be added
  */
-func checkEnvVarRequirement(logConf *logConfigs) bool {
+func checkEnvVarRequirement(logConf *LogConfigs) bool {
 	if logConf == nil {
 		glog.Error("Log configuration not provided check config map for errors")
 		return false
@@ -184,7 +163,7 @@ func checkEnvVarRequirement(logConf *logConfigs) bool {
  *  @return Boolean Whether the pod needs to be mutated
  */
 func mutationRequired(ignoredList []string, metadata *metav1.ObjectMeta, depName string,
-	logConfigurations *logConfigs) bool {
+	logConfigurations *LogConfigs) bool {
 
 	// Skip special kubernetes system namespaces
 	for _, namespace := range ignoredList {
@@ -381,7 +360,7 @@ func updateAnnotation(target map[string]string, annotations map[string]string) (
  *  @param logConfigurations Log Configuration required by the TestGrid job
  *  @return string Path to extract logs from the deployment name container name pair
  */
-func findLogPath(depName string, containerName string, logConfigurations *logConfigs) (path string) {
+func findLogPath(depName string, containerName string, logConfigurations *LogConfigs) (path string) {
 	for _, logLoc := range logConfigurations.Logpaths {
 		if logLoc.DeploymentName == depName && logLoc.ContainerName == containerName {
 			return logLoc.Path
@@ -398,8 +377,8 @@ func deriveDepName(podRandomName string, podHash string) string {
 }
 
 // Create mutation patch for resources
-func createPatch(pod *corev1.Pod, sidecarConfig *injectionConfig, annotations map[string]string,
-	logConfs *logConfigs) ([]byte, error) {
+func createPatch(pod *corev1.Pod, sidecarConfig *InjectionConfig, annotations map[string]string,
+	logConfs *LogConfigs) ([]byte, error) {
 
 	var patch []patchOperation
 	var containerList = pod.Spec.Containers
@@ -545,7 +524,6 @@ func (mwhServer *MwhServer) mutate(admissionReview *v1beta1.AdmissionReview) *v1
 
 // Serve method for web-hook server
 func (mwhServer *MwhServer) Serve(responseWriter http.ResponseWriter, k8srequest *http.Request) {
-	glog.Info("code review applied")
 	var body []byte
 	var err error
 	if k8srequest.Body != nil {
