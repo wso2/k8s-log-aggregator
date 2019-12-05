@@ -1,0 +1,12 @@
+# Sample of the File not actual Values
+apiVersion: v1
+data:
+  logpath-details.yaml: |
+    onlyVars: false
+    logPaths:
+    - {deploymentName: wso2apim-with-analytics-apim, containerName: wso2apim-with-analytics-apim-worker,
+      path: /home/wso2carbon/wso2am-2.6.0/repository/logs/}
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: logpath-config

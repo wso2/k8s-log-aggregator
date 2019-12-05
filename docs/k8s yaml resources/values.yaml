@@ -1,0 +1,12 @@
+wso2:
+   sidecarReq: true
+   namespace: <NAMESPACE>
+   cabundle: <CA_BUNDLE_VALUE>
+   elasticSearch:
+      esEndpoint: <ES_ENDPOINT>
+   s3Vars:
+      s3secretkey: <ENTER_S3_SECRET_KEY_HERE>
+      s3accesskey: <ENTER_S3_ACCESS_KEY_HERE>
+      s3RegionName: us-east-2
+      s3Bucket: bucket
+      s3BucketPath: <S3_BUCKET_PATH>
